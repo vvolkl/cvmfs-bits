@@ -32,8 +32,10 @@ name: cvmfs-bits-gateway
 
 # ---------------------------------------------------------------------------
 # Fixed credentials – dev/test only.  The S3 creds must match between
-# garage-setup and gateway; the gateway lease key (GW_KEY_ID/GW_KEY_SECRET)
-# must match the CVMFS_GATEWAY_KEY_ID/CVMFS_GATEWAY_SECRET that prepub sends.
+# garage-setup and gateway.  GW_KEY_ID/GW_KEY_SECRET are only placeholders:
+# `cvmfs_server mkfs` regenerates /etc/cvmfs/keys/<repo>.gw with a random key,
+# so run.sh reads the real lease key back out of the container and hands it to
+# prepub rather than assuming these values.
 # ---------------------------------------------------------------------------
 x-s3-env: &s3-env
     S3_ACCESS_KEY: GK00c4f5e0a1b2c3d4e5f60011
