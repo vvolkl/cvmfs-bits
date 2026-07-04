@@ -37,11 +37,13 @@ GATEWAY_URL="http://localhost:4929"
 GARAGE_WEB="http://localhost:3902"
 GARAGE_WEB_HOST="cvmfs.web.garage.internal"
 
-# The gateway lease key is read back from the container after startup (see
-# below): `cvmfs_server mkfs` regenerates /etc/cvmfs/keys/<repo>.gw with a
-# random key, so we must use whatever key the gateway actually loaded rather
-# than assuming the mykey/mysecret placeholder from docker-compose.yml.
-# CVMFS_GATEWAY_KEY_ID / CVMFS_GATEWAY_SECRET are exported once it is known.
+# Gateway lease key.  The gateway entrypoint writes "plain_text mykey mysecret"
+# to /etc/cvmfs/keys/<repo>.gw and the mounted repo.json associates that key
+# with test.repo.org, so prepub must sign with the same id/secret.  (These are
+# fixed dev/test credentials, matching docker-compose.yml's GW_KEY_* env.)
+export CVMFS_GATEWAY_KEY_ID="mykey"
+export CVMFS_GATEWAY_SECRET="mysecret"
+
 # Bearer token guarding the prepub HTTP API.
 export PREPUB_API_TOKEN="integration-test-token"
 
@@ -110,18 +112,6 @@ log "building + starting Garage + mountless gateway (CVMFS_SRC=${CVMFS_SRC})"
 # The gateway entrypoint runs `cvmfs_server mkfs` on first boot, which takes a
 # while; poll the lease API root until it answers.
 wait_for_http "${GATEWAY_URL}/api/v1" "gateway lease API" 120
-
-# The gateway loads its lease key from /etc/cvmfs/keys/<repo>.gw, which mkfs
-# (re)generated with a random key.  Read it back so prepub signs with the key
-# ID the gateway actually recognises (format: "plain_text <id> <secret>").
-log "reading gateway lease key from the container"
-gw_key_line="$("${COMPOSE[@]}" exec -T gateway cat "/etc/cvmfs/keys/${REPO_NAME}.gw")"
-CVMFS_GATEWAY_KEY_ID="$(printf '%s' "${gw_key_line}" | awk '{print $2}')"
-CVMFS_GATEWAY_SECRET="$(printf '%s' "${gw_key_line}" | awk '{print $3}')"
-export CVMFS_GATEWAY_KEY_ID CVMFS_GATEWAY_SECRET
-[[ -n "${CVMFS_GATEWAY_KEY_ID}" && -n "${CVMFS_GATEWAY_SECRET}" ]] \
-    || { err "could not read gateway lease key from ${REPO_NAME}.gw"; exit 1; }
-log "gateway lease key id: ${CVMFS_GATEWAY_KEY_ID}"
 
 # ---------------------------------------------------------------------------
 # 2. Build + start cvmfs-prepub (gateway mode) on the host
