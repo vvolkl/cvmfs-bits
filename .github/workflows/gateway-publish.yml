@@ -24,6 +24,9 @@ on:
             - "cmd/prepub/**"
             - "test/integration/gateway/**"
             - ".github/workflows/gateway-publish.yml"
+    push:
+        branches:
+            - "gateway-dedicated-graft-endpoint-test"
 
 # A gateway build from source is expensive; don't pile up concurrent runs.
 concurrency:
