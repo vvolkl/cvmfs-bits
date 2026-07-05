@@ -122,11 +122,22 @@ log "building cvmfs-prepub"
 mkdir -p "${WORKDIR}/spool" "${WORKDIR}/cas"
 
 log "starting cvmfs-prepub against ${GATEWAY_URL}"
+# --stratum0-url is REQUIRED for gateway publishing: prepub only builds the
+# subtree catalog (BuildSubtree, which produces new_root_hash) when a stratum0
+# URL is configured.  Without it the commit sends a null new_root_hash and the
+# receiver rejects the DirectGraft with "merge_error" ("DirectGraft requires a
+# catalog hash").  We point it at Garage's web endpoint on localhost; because
+# Garage routes buckets by Host header, a bare localhost request for a fresh
+# repo returns 404, which prepub correctly treats as "first publish, no existing
+# manifest" (empty old_root_hash) — exactly right here.  The receiver fetches
+# the real base manifest itself over the compose network, so an empty
+# old_root_hash does not affect the graft.
 "${WORKDIR}/cvmfs-prepub" \
     --dev \
     --publish-mode gateway \
     --gateway-url "${GATEWAY_URL}" \
     --gateway-direct-graft=true \
+    --stratum0-url "${GARAGE_WEB}" \
     --listen "${PREPUB_LISTEN}" \
     --spool-root "${WORKDIR}/spool" \
     --cas-type localfs \

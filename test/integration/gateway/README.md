@@ -22,12 +22,22 @@ There is **no** `cvmfs_server` publisher container: the publisher is
 ```
   cvmfs-prepub (host, gateway mode)
         │  lease → payload → commit/graft   (HMAC-signed HTTP :4929)
-        ▼
+        │  ▲ reads .cvmfspublished for old_root_hash (web endpoint :3902)
+        ▼  │
   cvmfs_gateway ── spawns ──▶ cvmfs_receiver      (mountless container)
         │                                           writes objects/catalogs
         ▼
   Garage (S3)  ◀── clients read repo data          (web endpoint :3902)
 ```
+
+`prepub` is started with `--stratum0-url http://localhost:3902` (Garage's web
+endpoint). This is **required**: prepub only builds the subtree catalog — the
+one that yields `new_root_hash` — when a stratum0 URL is configured. Without it
+the commit carries a null `new_root_hash` and the receiver rejects the
+DirectGraft with `merge_error` / "DirectGraft requires a catalog hash". For a
+fresh repo the manifest GET returns 404 (Garage routes buckets by Host header),
+which prepub treats as "first publish" (empty `old_root_hash`); the receiver
+fetches the real base manifest itself, so that is correct here.
 
 ## Running locally
 
